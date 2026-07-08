@@ -17,6 +17,7 @@ import type { TooltipProps } from "recharts";
 import { alignSeries, fetchDailySeries, logPrices, type AlignedPair } from "../lib/data";
 import { rollingOlsBeta, runDynamicRegression } from "../lib/kalman";
 import { fmtDateTick, fmtNum, fmtSci, isoDaysAgo, isoToday, pickTicks } from "../lib/format";
+import { C, AXIS_TICK } from "../lib/chartColors";
 import { Tex } from "./Tex";
 
 const OLS_WINDOW = 60;
@@ -57,7 +58,7 @@ function ZTooltip({ active, payload }: TooltipProps<number, string>) {
   );
 }
 
-const axisTick = { fill: "#78838e", fontSize: 11, fontFamily: "var(--mono)" } as const;
+const axisTick = AXIS_TICK;
 
 export default function HedgeRatioView() {
   const [tickerY, setTickerY] = useState("KO");
@@ -251,20 +252,20 @@ export default function HedgeRatioView() {
               <span className="hint">Kalman estimate vs {OLS_WINDOW}-day rolling OLS</span>
             </div>
             <div className="legend">
-              <span className="legend-item"><span className="legend-swatch" style={{ background: "var(--accent)" }} />kalman &beta;</span>
-              <span className="legend-item"><span className="legend-swatch band" style={{ background: "var(--accent)" }} />95% band</span>
-              <span className="legend-item"><span className="legend-swatch" style={{ background: "var(--ols)", height: 1 }} />rolling OLS ({OLS_WINDOW}d)</span>
+              <span className="legend-item"><span className="legend-swatch" style={{ background: C.est }} />kalman &beta;</span>
+              <span className="legend-item"><span className="legend-swatch band" style={{ background: C.est }} />95% band</span>
+              <span className="legend-item"><span className="legend-swatch" style={{ background: C.ols, height: 1 }} />rolling OLS ({OLS_WINDOW}d)</span>
             </div>
             <div className="chart-wrap">
               <ResponsiveContainer width="100%" height={340}>
                 <ComposedChart data={model.rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke="#161d25" vertical={false} />
+                  <CartesianGrid stroke={C.grid} vertical={false} />
                   <XAxis
                     dataKey="date"
                     ticks={ticks}
                     tickFormatter={fmtDateTick}
                     tick={axisTick}
-                    axisLine={{ stroke: "#1f2831" }}
+                    axisLine={{ stroke: C.grid }}
                     tickLine={false}
                   />
                   <YAxis
@@ -275,18 +276,18 @@ export default function HedgeRatioView() {
                     tickLine={false}
                     width={56}
                   />
-                  <Tooltip content={<BetaTooltip />} cursor={{ stroke: "#2c3843" }} />
-                  <Area dataKey="band" stroke="none" fill="var(--accent)" fillOpacity={0.12} isAnimationActive={false} />
+                  <Tooltip content={<BetaTooltip />} cursor={{ stroke: C.cursor }} />
+                  <Area dataKey="band" stroke="none" fill={C.est} fillOpacity={C.estBandOpacity} isAnimationActive={false} />
                   <Line
                     dataKey="ols"
-                    stroke="var(--ols)"
-                    strokeWidth={1}
-                    strokeDasharray="4 3"
+                    stroke={C.ols}
+                    strokeWidth={1.2}
+                    strokeDasharray="5 4"
                     dot={false}
                     connectNulls={false}
                     isAnimationActive={false}
                   />
-                  <Line dataKey="beta" stroke="var(--accent)" strokeWidth={1.6} dot={false} isAnimationActive={false} />
+                  <Line dataKey="beta" stroke={C.est} strokeWidth={2} dot={false} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -302,13 +303,13 @@ export default function HedgeRatioView() {
             <div className="chart-wrap">
               <ResponsiveContainer width="100%" height={190}>
                 <BarChart data={model.rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke="#161d25" vertical={false} />
+                  <CartesianGrid stroke={C.grid} vertical={false} />
                   <XAxis
                     dataKey="date"
                     ticks={ticks}
                     tickFormatter={fmtDateTick}
                     tick={axisTick}
-                    axisLine={{ stroke: "#1f2831" }}
+                    axisLine={{ stroke: C.grid }}
                     tickLine={false}
                   />
                   <YAxis
@@ -318,16 +319,16 @@ export default function HedgeRatioView() {
                     tickLine={false}
                     width={56}
                   />
-                  <Tooltip content={<ZTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                  <ReferenceLine y={0} stroke="#2c3843" />
-                  <ReferenceLine y={2} stroke="var(--red)" strokeDasharray="3 3" strokeOpacity={0.6} />
-                  <ReferenceLine y={-2} stroke="var(--green)" strokeDasharray="3 3" strokeOpacity={0.6} />
+                  <Tooltip content={<ZTooltip />} cursor={{ fill: C.cursorFill }} />
+                  <ReferenceLine y={0} stroke={C.zero} />
+                  <ReferenceLine y={2} stroke={C.red} strokeDasharray="3 3" strokeOpacity={0.7} />
+                  <ReferenceLine y={-2} stroke={C.green} strokeDasharray="3 3" strokeOpacity={0.7} />
                   <Bar dataKey="z" isAnimationActive={false}>
                     {model.rows.map((r) => (
                       <Cell
                         key={r.date}
-                        fill={r.z >= 2 ? "var(--red)" : r.z <= -2 ? "var(--green)" : "#3a4552"}
-                        fillOpacity={Math.abs(r.z) >= 2 ? 0.95 : 0.6}
+                        fill={r.z >= 2 ? C.red : r.z <= -2 ? C.green : C.neutral}
+                        fillOpacity={Math.abs(r.z) >= 2 ? 0.95 : 1}
                       />
                     ))}
                   </Bar>

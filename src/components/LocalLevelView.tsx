@@ -17,6 +17,7 @@ import type { TooltipProps } from "recharts";
 import { fetchDailySeries, type DailySeries } from "../lib/data";
 import { diffVariance, runLocalLevel } from "../lib/kalman";
 import { fmtDateTick, fmtNum, fmtSci, isoDaysAgo, isoToday, pickTicks } from "../lib/format";
+import { C, AXIS_TICK } from "../lib/chartColors";
 import { Tex } from "./Tex";
 
 interface Row {
@@ -202,34 +203,34 @@ export default function LocalLevelView() {
               <span className="hint">band is the 95% interval from the state covariance</span>
             </div>
             <div className="legend">
-              <span className="legend-item"><span className="legend-swatch" style={{ background: "var(--observed)" }} />observed close</span>
-              <span className="legend-item"><span className="legend-swatch" style={{ background: "var(--accent)" }} />filtered estimate</span>
-              <span className="legend-item"><span className="legend-swatch band" style={{ background: "var(--accent)" }} />95% band</span>
+              <span className="legend-item"><span className="legend-swatch" style={{ background: C.price }} />observed close</span>
+              <span className="legend-item"><span className="legend-swatch" style={{ background: C.est }} />kalman estimate</span>
+              <span className="legend-item"><span className="legend-swatch band" style={{ background: C.est }} />95% band</span>
             </div>
             <div className="chart-wrap">
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={model.rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke="#161d25" vertical={false} />
+                  <CartesianGrid stroke={C.grid} vertical={false} />
                   <XAxis
                     dataKey="date"
                     ticks={ticks}
                     tickFormatter={fmtDateTick}
-                    tick={{ fill: "#78838e", fontSize: 11, fontFamily: "var(--mono)" }}
-                    axisLine={{ stroke: "#1f2831" }}
+                    tick={AXIS_TICK}
+                    axisLine={{ stroke: C.grid }}
                     tickLine={false}
                   />
                   <YAxis
                     domain={["auto", "auto"]}
                     tickFormatter={(v: number) => fmtNum(v, 0)}
-                    tick={{ fill: "#78838e", fontSize: 11, fontFamily: "var(--mono)" }}
+                    tick={AXIS_TICK}
                     axisLine={false}
                     tickLine={false}
                     width={52}
                   />
-                  <Tooltip content={<PriceTooltip />} cursor={{ stroke: "#2c3843" }} />
-                  <Area dataKey="band" stroke="none" fill="var(--accent)" fillOpacity={0.1} isAnimationActive={false} />
-                  <Line dataKey="observed" stroke="var(--observed)" strokeWidth={1} dot={false} isAnimationActive={false} />
-                  <Line dataKey="filtered" stroke="var(--accent)" strokeWidth={1.6} dot={false} isAnimationActive={false} />
+                  <Tooltip content={<PriceTooltip />} cursor={{ stroke: C.cursor }} />
+                  <Area dataKey="band" stroke="none" fill={C.est} fillOpacity={C.estBandOpacity} isAnimationActive={false} />
+                  <Line dataKey="observed" stroke={C.price} strokeWidth={1.1} dot={false} isAnimationActive={false} />
+                  <Line dataKey="filtered" stroke={C.est} strokeWidth={2} dot={false} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -245,27 +246,27 @@ export default function LocalLevelView() {
             <div className="chart-wrap">
               <ResponsiveContainer width="100%" height={170}>
                 <BarChart data={model.rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke="#161d25" vertical={false} />
+                  <CartesianGrid stroke={C.grid} vertical={false} />
                   <XAxis
                     dataKey="date"
                     ticks={ticks}
                     tickFormatter={fmtDateTick}
-                    tick={{ fill: "#78838e", fontSize: 11, fontFamily: "var(--mono)" }}
-                    axisLine={{ stroke: "#1f2831" }}
+                    tick={AXIS_TICK}
+                    axisLine={{ stroke: C.grid }}
                     tickLine={false}
                   />
                   <YAxis
                     tickFormatter={(v: number) => fmtNum(v, 0)}
-                    tick={{ fill: "#78838e", fontSize: 11, fontFamily: "var(--mono)" }}
+                    tick={AXIS_TICK}
                     axisLine={false}
                     tickLine={false}
                     width={52}
                   />
-                  <Tooltip content={<InnovTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                  <ReferenceLine y={0} stroke="#2c3843" />
+                  <Tooltip content={<InnovTooltip />} cursor={{ fill: C.cursorFill }} />
+                  <ReferenceLine y={0} stroke={C.zero} />
                   <Bar dataKey="zInnov" isAnimationActive={false}>
                     {model.rows.map((r) => (
-                      <Cell key={r.date} fill={r.zInnov >= 0 ? "var(--green)" : "var(--red)"} fillOpacity={0.75} />
+                      <Cell key={r.date} fill={r.zInnov >= 0 ? C.green : C.red} fillOpacity={0.75} />
                     ))}
                   </Bar>
                 </BarChart>

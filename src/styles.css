@@ -14,10 +14,12 @@
   --faint: #4a535e;
   --gold: #d7a34a;
   --gold-soft: rgba(215, 163, 74, 0.13);
-  --green: #3fb984;
-  --red: #e05a4f;
-  --observed: #56636f;
-  --ols: #7c8b99;
+  /* chart series colors, keep in sync with src/lib/chartColors.ts */
+  --est: #3fc1f0;
+  --green: #2fc98c;
+  --red: #f05650;
+  --observed: #a9b7c3;
+  --ols: #e0904a;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -579,7 +581,8 @@ a {
 }
 
 .readout-cell .v.accent {
-  color: var(--gold);
+  /* matches the Kalman estimate line, so number and line read as one thing */
+  color: var(--est);
 }
 
 .readout-cell .sub {
