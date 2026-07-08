@@ -1,0 +1,485 @@
+/* Quant terminal design system. Dark, dense, mono for anything numeric,
+   color reserved for signal. One accent (amber), green/red for direction. */
+
+:root {
+  --bg: #0a0d10;
+  --panel: #10151b;
+  --panel-raised: #141a21;
+  --border: #1f2831;
+  --border-strong: #2c3843;
+  --fg: #d6dde4;
+  --muted: #78838e;
+  --faint: #4c5560;
+  --accent: #e2a63d;
+  --accent-dim: rgba(226, 166, 61, 0.14);
+  --green: #34bf8f;
+  --red: #e0564f;
+  --observed: #5d6b78;
+  --ols: #6f7f8f;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--accent-dim);
+}
+
+.num,
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- shell ---------- */
+
+.app {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px 64px;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0 14px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+}
+
+.brand .slash {
+  color: var(--accent);
+}
+
+.brand-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin-left: 14px;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 14px 10px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--fg);
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ---------- panels ---------- */
+
+.view {
+  padding-top: 22px;
+}
+
+.view-lede {
+  max-width: 74ch;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+.view-lede strong {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.panel-title .hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--faint);
+}
+
+/* ---------- controls ---------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 26px;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field input[type="text"],
+.field input[type="date"] {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 6px 9px;
+  width: 120px;
+}
+
+.field input[type="date"] {
+  width: 150px;
+  color-scheme: dark;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field.slider-field {
+  min-width: 230px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+.slider-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  min-width: 72px;
+  text-align: right;
+}
+
+.slider-caption {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 2px;
+}
+
+.run-btn {
+  appearance: none;
+  background: var(--accent);
+  color: #14100a;
+  border: none;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 22px;
+  cursor: pointer;
+}
+
+.run-btn:hover {
+  filter: brightness(1.08);
+}
+
+.run-btn:disabled {
+  background: var(--border-strong);
+  color: var(--muted);
+  cursor: default;
+}
+
+.error-box {
+  border: 1px solid rgba(224, 86, 79, 0.4);
+  background: rgba(224, 86, 79, 0.08);
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-top: 14px;
+}
+
+.loading-note {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  padding: 32px 0;
+  text-align: center;
+}
+
+/* ---------- readout strip ---------- */
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.readout-cell {
+  background: var(--panel);
+  padding: 12px 14px;
+}
+
+.readout-cell .k {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.readout-cell .v {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  color: var(--fg);
+}
+
+.readout-cell .v.pos {
+  color: var(--green);
+}
+
+.readout-cell .v.neg {
+  color: var(--red);
+}
+
+.readout-cell .v.accent {
+  color: var(--accent);
+}
+
+.readout-cell .sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  margin-top: 2px;
+}
+
+/* ---------- charts ---------- */
+
+.chart-wrap {
+  margin: 0 -6px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 2px;
+  display: inline-block;
+}
+
+.legend-swatch.band {
+  height: 8px;
+  opacity: 0.35;
+}
+
+.tt {
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 8px 11px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tt .tt-date {
+  color: var(--muted);
+  margin-bottom: 3px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 3px;
+}
+
+.tt .tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.tt .tt-row .lbl {
+  color: var(--muted);
+}
+
+.tt .tt-row .val {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+/* ---------- methodology ---------- */
+
+.method {
+  max-width: 860px;
+}
+
+.method h2 {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 40px 0 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.method h2:first-of-type {
+  margin-top: 8px;
+  border-top: none;
+  padding-top: 0;
+}
+
+.method h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 24px 0 8px;
+}
+
+.method p {
+  color: var(--fg);
+  max-width: 72ch;
+  margin: 0 0 12px;
+}
+
+.method p.dim {
+  color: var(--muted);
+}
+
+.tex-block {
+  padding: 14px 8px;
+  overflow-x: auto;
+}
+
+.tex-block .katex {
+  font-size: 1.12em;
+}
+
+.where {
+  border-left: 2px solid var(--border-strong);
+  padding: 2px 0 2px 16px;
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.where .where-row {
+  margin: 3px 0;
+}
+
+.where .katex {
+  font-size: 1em;
+  color: var(--fg);
+}
+
+.method .katex {
+  color: var(--fg);
+}
+
+footer.app-footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
