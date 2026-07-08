@@ -32,7 +32,7 @@ The Alpha Vantage step is the escape hatch for networks that firewall Yahoo Fina
 
 To swap in a different provider, replace the source functions in `src/lib/data.ts`. Each returns `{ symbol, dates, closes, source }` with ISO dates and adjusted closes, and everything downstream keeps working.
 
-**Note on production deploys.** The Vite proxy exists only in the dev server. If you deploy the built app, put the same rewrite on your host (a Vercel rewrite, a Netlify redirect, or any small reverse proxy) or switch the data layer to a keyed API that sends CORS headers.
+**Production deploys (Vercel) work out of the box.** The browser cannot call Yahoo directly, so in production the data comes from `api/chart.js`, a Vercel serverless function that fetches Yahoo server-side with host failover and CDN caching. The same route exists in development through a small middleware in `vite.config.ts`, so the client code is identical in both environments. `vercel.json` additionally rewrites the direct passthrough routes (`/api/yahoo1`, `/api/yahoo2`, `/api/av`) so the fallback chain and the Alpha Vantage option work in production too. Deploying is just importing the repo into Vercel, no configuration or environment variables needed.
 
 ## Changing the ticker pair
 

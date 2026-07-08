@@ -63,32 +63,21 @@ async function fetchJson(url: string, timeoutMs = 12000): Promise<Response> {
   }
 }
 
-async function fetchFromYahoo(
-  host: "yahoo1" | "yahoo2" | "market",
-  symbol: string,
-  period1: number,
-  period2: number,
-): Promise<DailySeries> {
-  const url =
-    `/api/${host}/v8/finance/chart/${encodeURIComponent(symbol)}` +
-    `?period1=${period1}&period2=${period2}&interval=1d&events=div%2Csplit`;
-
-  const res = await fetchJson(url);
+/** Guard against a server answering with an HTML error page or SPA fallback. */
+async function readChartJson(res: Response): Promise<YahooChartResponse> {
+  const ct = res.headers.get("content-type") ?? "";
   if (!res.ok) {
-    // Yahoo always answers in JSON, even for errors. A non-JSON error body
-    // means the request died at the local dev server (usually a proxy route
-    // the running server does not know about), which needs a different fix
-    // than a data problem.
-    const ct = res.headers.get("content-type") ?? "";
-    if (!ct.includes("json")) {
-      throw new Error(
-        `HTTP ${res.status} from the local dev server, the request never reached Yahoo. ` +
-          `Stop and restart "npm run dev", then hard-refresh this page`,
-      );
+    if (ct.includes("json")) {
+      const body = (await res.json()) as { error?: string };
+      throw new Error(body.error ?? `HTTP ${res.status}`);
     }
-    throw new Error(`HTTP ${res.status}`);
+    throw new Error(`HTTP ${res.status}, request never reached the data source`);
   }
-  const json = (await res.json()) as YahooChartResponse;
+  if (!ct.includes("json")) throw new Error("unexpected non-JSON response");
+  return (await res.json()) as YahooChartResponse;
+}
+
+function parseYahooChart(json: YahooChartResponse, symbol: string, source: string): DailySeries {
   if (json.chart.error) throw new Error(json.chart.error.description);
 
   const result = json.chart.result?.[0];
@@ -108,7 +97,38 @@ async function fetchFromYahoo(
     }
   }
   if (closes.length < 30) throw new Error(`only ${closes.length} usable rows`);
-  return { symbol, dates, closes: Float64Array.from(closes), source: host };
+  return { symbol, dates, closes: Float64Array.from(closes), source };
+}
+
+/**
+ * The app's own API route. Served by api/chart.js on Vercel and by the
+ * matching middleware in vite.config.ts during development, so it exists in
+ * both environments. This is the primary source.
+ */
+async function fetchFromAppApi(
+  symbol: string,
+  period1: number,
+  period2: number,
+): Promise<DailySeries> {
+  const url =
+    `/api/chart?symbol=${encodeURIComponent(symbol)}` +
+    `&period1=${period1}&period2=${period2}`;
+  const json = await readChartJson(await fetchJson(url));
+  return parseYahooChart(json, symbol, "yahoo");
+}
+
+/** Direct proxy passthrough to a Yahoo host, the secondary route. */
+async function fetchFromYahoo(
+  host: "yahoo1" | "yahoo2" | "market",
+  symbol: string,
+  period1: number,
+  period2: number,
+): Promise<DailySeries> {
+  const url =
+    `/api/${host}/v8/finance/chart/${encodeURIComponent(symbol)}` +
+    `?period1=${period1}&period2=${period2}&interval=1d&events=div%2Csplit`;
+  const json = await readChartJson(await fetchJson(url));
+  return parseYahooChart(json, symbol, host);
 }
 
 interface AvResponse {
@@ -182,11 +202,12 @@ export async function fetchDailySeries(
   }
 
   const attempts: Array<{ label: string; run: () => Promise<DailySeries> }> = [
+    // Primary: the app's own API, which exists in dev and on Vercel and does
+    // its own Yahoo host failover server-side.
+    { label: "app API", run: () => fetchFromAppApi(symbol, period1, period2) },
+    // Secondary: direct proxy passthroughs.
     { label: "Yahoo (host 1)", run: () => fetchFromYahoo("yahoo1", symbol, period1, period2) },
     { label: "Yahoo (host 2)", run: () => fetchFromYahoo("yahoo2", symbol, period1, period2) },
-    // Same upstream as host 1 but on the proxy route older dev servers know.
-    // Covers the case where the page bundle is newer than the running server.
-    { label: "Yahoo (legacy route)", run: () => fetchFromYahoo("market", symbol, period1, period2) },
   ];
   const key = getAlphaVantageKey();
   if (key) {

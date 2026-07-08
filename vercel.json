@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/api/yahoo1/:path*", "destination": "https://query1.finance.yahoo.com/:path*" },
+    { "source": "/api/yahoo2/:path*", "destination": "https://query2.finance.yahoo.com/:path*" },
+    { "source": "/api/market/:path*", "destination": "https://query1.finance.yahoo.com/:path*" },
+    { "source": "/api/av/:path*", "destination": "https://www.alphavantage.co/:path*" }
+  ]
+}
