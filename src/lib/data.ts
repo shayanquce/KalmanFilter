@@ -64,7 +64,7 @@ async function fetchJson(url: string, timeoutMs = 12000): Promise<Response> {
 }
 
 async function fetchFromYahoo(
-  host: "yahoo1" | "yahoo2",
+  host: "yahoo1" | "yahoo2" | "market",
   symbol: string,
   period1: number,
   period2: number,
@@ -74,7 +74,20 @@ async function fetchFromYahoo(
     `?period1=${period1}&period2=${period2}&interval=1d&events=div%2Csplit`;
 
   const res = await fetchJson(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    // Yahoo always answers in JSON, even for errors. A non-JSON error body
+    // means the request died at the local dev server (usually a proxy route
+    // the running server does not know about), which needs a different fix
+    // than a data problem.
+    const ct = res.headers.get("content-type") ?? "";
+    if (!ct.includes("json")) {
+      throw new Error(
+        `HTTP ${res.status} from the local dev server, the request never reached Yahoo. ` +
+          `Stop and restart "npm run dev", then hard-refresh this page`,
+      );
+    }
+    throw new Error(`HTTP ${res.status}`);
+  }
   const json = (await res.json()) as YahooChartResponse;
   if (json.chart.error) throw new Error(json.chart.error.description);
 
@@ -156,12 +169,24 @@ export async function fetchDailySeries(
   startDate: string,
   endDate: string,
 ): Promise<DailySeries> {
+  // Guard the inputs before they become a malformed URL. An empty or
+  // half-typed date field turns into NaN, and Yahoo rejects those requests.
+  if (!symbol.trim()) throw new Error("ticker is empty");
   const period1 = Math.floor(new Date(startDate + "T00:00:00Z").getTime() / 1000);
   const period2 = Math.floor(new Date(endDate + "T23:59:59Z").getTime() / 1000);
+  if (!Number.isFinite(period1) || !Number.isFinite(period2)) {
+    throw new Error("pick valid start and end dates before running");
+  }
+  if (period1 >= period2) {
+    throw new Error("start date must be before end date");
+  }
 
   const attempts: Array<{ label: string; run: () => Promise<DailySeries> }> = [
     { label: "Yahoo (host 1)", run: () => fetchFromYahoo("yahoo1", symbol, period1, period2) },
     { label: "Yahoo (host 2)", run: () => fetchFromYahoo("yahoo2", symbol, period1, period2) },
+    // Same upstream as host 1 but on the proxy route older dev servers know.
+    // Covers the case where the page bundle is newer than the running server.
+    { label: "Yahoo (legacy route)", run: () => fetchFromYahoo("market", symbol, period1, period2) },
   ];
   const key = getAlphaVantageKey();
   if (key) {

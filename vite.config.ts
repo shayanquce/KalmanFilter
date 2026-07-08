@@ -11,22 +11,29 @@ const yahooHeaders = {
   Accept: "application/json",
 };
 
+const yahoo1 = {
+  target: "https://query1.finance.yahoo.com",
+  changeOrigin: true,
+  headers: yahooHeaders,
+};
+
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Fail loudly if 5173 is taken instead of silently hopping ports, which
+    // leaves browser tabs pointed at stale servers.
+    strictPort: true,
     proxy: {
-      "/api/yahoo1": {
-        target: "https://query1.finance.yahoo.com",
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api\/yahoo1/, ""),
-        headers: yahooHeaders,
-      },
+      "/api/yahoo1": { ...yahoo1, rewrite: (p) => p.replace(/^\/api\/yahoo1/, "") },
       "/api/yahoo2": {
         target: "https://query2.finance.yahoo.com",
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api\/yahoo2/, ""),
         headers: yahooHeaders,
       },
+      // Legacy alias kept so a browser tab still running an older bundle
+      // (which requested /api/market) keeps working against this server.
+      "/api/market": { ...yahoo1, rewrite: (p) => p.replace(/^\/api\/market/, "") },
       "/api/av": {
         target: "https://www.alphavantage.co",
         changeOrigin: true,
