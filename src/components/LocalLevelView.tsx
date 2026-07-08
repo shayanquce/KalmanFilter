@@ -172,7 +172,7 @@ export default function LocalLevelView() {
             <div className="readout-cell">
               <div className="k">Last close</div>
               <div className="v">{fmtNum(last.observed)}</div>
-              <div className="sub">{last.date}</div>
+              <div className="sub">{last.date} &middot; {series?.source}</div>
             </div>
             <div className="readout-cell">
               <div className="k">Filtered level</div>

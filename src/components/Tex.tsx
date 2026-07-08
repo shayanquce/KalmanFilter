@@ -13,6 +13,19 @@ export function TexBlock({ tex }: { tex: string }) {
   return <div className="tex-block" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
+/** A framed display equation, the standard unit in the methodology. */
+export function Eqn({ tex }: { tex: string }) {
+  const html = useMemo(
+    () => katex.renderToString(tex, { displayMode: true, throwOnError: true }),
+    [tex],
+  );
+  return (
+    <div className="eqn">
+      <div className="eqn-body" dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
+
 export function Tex({ tex }: { tex: string }) {
   const html = useMemo(
     () => katex.renderToString(tex, { displayMode: false, throwOnError: true }),
@@ -26,8 +39,11 @@ export function Where({ rows }: { rows: Array<[string, string]> }) {
   return (
     <div className="where">
       {rows.map(([sym, def]) => (
-        <div className="where-row" key={sym}>
-          <Tex tex={sym} /> <span>{def}</span>
+        <div className="where-pair" key={sym} style={{ display: "contents" }}>
+          <div className="where-sym">
+            <Tex tex={sym} />
+          </div>
+          <div className="where-def">{def}</div>
         </div>
       ))}
     </div>

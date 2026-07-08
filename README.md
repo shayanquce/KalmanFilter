@@ -20,9 +20,17 @@ Then open the URL Vite prints (default `http://localhost:5173`). That is the who
 
 **Filter math in TypeScript, no Python backend.** The two filters here are a scalar recursion and a 2x2 matrix recursion. Numpy buys nothing at that size, and dropping the second service means one process, one install, one command, and a trivial deploy. The implementations live in `src/lib/kalman.ts` and are written directly against the update equations, so they double as readable reference code.
 
-**Data from the Yahoo Finance chart endpoint, proxied through Vite.** The endpoint is free, keyless, and returns split- and dividend-adjusted daily closes. It does not send CORS headers, so the dev server proxies `/api/market/*` to `query1.finance.yahoo.com` (see `vite.config.ts`). No API key to manage and no daily request cap, which is why it was chosen over Alpha Vantage (25 requests/day on the free tier) and Finnhub (historical candles are a paid endpoint now).
+**Data from the Yahoo Finance chart endpoint, proxied through Vite, with failover.** The endpoint is free, keyless, and returns split- and dividend-adjusted daily closes. It does not send CORS headers, so the dev server proxies it (see `vite.config.ts`). No API key to manage and no daily request cap, which is why it was chosen over Alpha Vantage (25 requests/day on the free tier) and Finnhub (historical candles are a paid endpoint now).
 
-To swap in Alpha Vantage or Finnhub instead, replace `fetchDailySeries` in `src/lib/data.ts`. It only needs to return `{ symbol, dates, closes }` with ISO dates and adjusted closes, and everything downstream keeps working.
+To keep one flaky or blocked host from taking the app down, `fetchDailySeries` in `src/lib/data.ts` tries three sources in order, each with one retry:
+
+1. Yahoo host `query1` (proxied at `/api/yahoo1`)
+2. Yahoo host `query2` (proxied at `/api/yahoo2`)
+3. Alpha Vantage (proxied at `/api/av`), used only if you save a key
+
+The Alpha Vantage step is the escape hatch for networks that firewall Yahoo Finance, since it is a different domain. Open the Data menu in the top bar, paste a free key, and it is stored in your browser (localStorage) and used as a fallback only. The readout strip shows which source actually answered.
+
+To swap in a different provider, replace the source functions in `src/lib/data.ts`. Each returns `{ symbol, dates, closes, source }` with ISO dates and adjusted closes, and everything downstream keeps working.
 
 **Note on production deploys.** The Vite proxy exists only in the dev server. If you deploy the built app, put the same rewrite on your host (a Vercel rewrite, a Netlify redirect, or any small reverse proxy) or switch the data layer to a keyed API that sends CORS headers.
 

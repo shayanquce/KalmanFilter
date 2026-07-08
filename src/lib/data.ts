@@ -1,10 +1,39 @@
-// Market data layer. Daily adjusted closes from the Yahoo Finance chart
-// endpoint, reached through the Vite dev proxy at /api/market to avoid CORS.
+// Market data layer. Daily adjusted closes with automatic failover so one
+// flaky or firewalled host does not take the whole app down.
+//
+// Order of attempts:
+//   1. Yahoo Finance host query1 (keyless)
+//   2. Yahoo Finance host query2 (keyless)
+//   3. Alpha Vantage, only if the user has saved a key (different domain, the
+//      fallback for networks that block Yahoo)
+//
+// All three are reached through the Vite dev proxy, so the browser only talks
+// to localhost and there is no CORS to fight.
 
 export interface DailySeries {
   symbol: string;
-  dates: string[]; // ISO yyyy-mm-dd
+  dates: string[]; // ISO yyyy-mm-dd, ascending
   closes: Float64Array;
+  source: string;
+}
+
+const AV_KEY_STORAGE = "kt.alphaVantageKey";
+
+export function getAlphaVantageKey(): string {
+  try {
+    return localStorage.getItem(AV_KEY_STORAGE) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function setAlphaVantageKey(key: string): void {
+  try {
+    if (key.trim()) localStorage.setItem(AV_KEY_STORAGE, key.trim());
+    else localStorage.removeItem(AV_KEY_STORAGE);
+  } catch {
+    // Private mode with storage disabled: keep going without persistence.
+  }
 }
 
 interface YahooChartResponse {
@@ -24,33 +53,37 @@ function toIsoDate(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toISOString().slice(0, 10);
 }
 
-export async function fetchDailySeries(
+async function fetchJson(url: string, timeoutMs = 12000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFromYahoo(
+  host: "yahoo1" | "yahoo2",
   symbol: string,
-  startDate: string,
-  endDate: string,
+  period1: number,
+  period2: number,
 ): Promise<DailySeries> {
-  const period1 = Math.floor(new Date(startDate + "T00:00:00Z").getTime() / 1000);
-  const period2 = Math.floor(new Date(endDate + "T23:59:59Z").getTime() / 1000);
   const url =
-    `/api/market/v8/finance/chart/${encodeURIComponent(symbol)}` +
+    `/api/${host}/v8/finance/chart/${encodeURIComponent(symbol)}` +
     `?period1=${period1}&period2=${period2}&interval=1d&events=div%2Csplit`;
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`${symbol}: data request failed (HTTP ${res.status})`);
-  }
+  const res = await fetchJson(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = (await res.json()) as YahooChartResponse;
-  if (json.chart.error) {
-    throw new Error(`${symbol}: ${json.chart.error.description}`);
-  }
+  if (json.chart.error) throw new Error(json.chart.error.description);
+
   const result = json.chart.result?.[0];
-  if (!result || !result.timestamp?.length) {
-    throw new Error(`${symbol}: no data returned for this range`);
-  }
+  if (!result || !result.timestamp?.length) throw new Error("empty response");
 
   const raw =
-    result.indicators.adjclose?.[0]?.adjclose ??
-    result.indicators.quote[0].close;
+    result.indicators.adjclose?.[0]?.adjclose ?? result.indicators.quote?.[0]?.close;
+  if (!raw) throw new Error("no close prices in response");
 
   const dates: string[] = [];
   const closes: number[] = [];
@@ -61,10 +94,96 @@ export async function fetchDailySeries(
       closes.push(c);
     }
   }
-  if (closes.length < 30) {
-    throw new Error(`${symbol}: only ${closes.length} valid observations, need at least 30`);
+  if (closes.length < 30) throw new Error(`only ${closes.length} usable rows`);
+  return { symbol, dates, closes: Float64Array.from(closes), source: host };
+}
+
+interface AvResponse {
+  "Time Series (Daily)"?: Record<string, { "4. close": string }>;
+  Note?: string;
+  Information?: string;
+  "Error Message"?: string;
+}
+
+async function fetchFromAlphaVantage(
+  symbol: string,
+  startDate: string,
+  endDate: string,
+  key: string,
+): Promise<DailySeries> {
+  const url =
+    `/api/av/query?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}` +
+    `&outputsize=full&apikey=${encodeURIComponent(key)}`;
+  const res = await fetchJson(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as AvResponse;
+
+  // Alpha Vantage returns 200 with an explanatory field on rate limits or bad
+  // symbols, so the real status is in the body.
+  if (json["Error Message"]) throw new Error("symbol not recognized");
+  if (json.Note || json.Information) {
+    throw new Error("Alpha Vantage rate limit reached, try again in a minute");
   }
-  return { symbol, dates, closes: Float64Array.from(closes) };
+  const ts = json["Time Series (Daily)"];
+  if (!ts) throw new Error("unexpected Alpha Vantage response");
+
+  const dates: string[] = [];
+  const closes: number[] = [];
+  for (const d of Object.keys(ts).sort()) {
+    if (d >= startDate && d <= endDate) {
+      const c = Number(ts[d]["4. close"]);
+      if (Number.isFinite(c)) {
+        dates.push(d);
+        closes.push(c);
+      }
+    }
+  }
+  if (closes.length < 30) throw new Error(`only ${closes.length} rows in range`);
+  return { symbol, dates, closes: Float64Array.from(closes), source: "alphavantage" };
+}
+
+/** Try a fetch, retry once on failure, so a single hiccup does not fail over. */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    return await fn();
+  }
+}
+
+export async function fetchDailySeries(
+  symbol: string,
+  startDate: string,
+  endDate: string,
+): Promise<DailySeries> {
+  const period1 = Math.floor(new Date(startDate + "T00:00:00Z").getTime() / 1000);
+  const period2 = Math.floor(new Date(endDate + "T23:59:59Z").getTime() / 1000);
+
+  const attempts: Array<{ label: string; run: () => Promise<DailySeries> }> = [
+    { label: "Yahoo (host 1)", run: () => fetchFromYahoo("yahoo1", symbol, period1, period2) },
+    { label: "Yahoo (host 2)", run: () => fetchFromYahoo("yahoo2", symbol, period1, period2) },
+  ];
+  const key = getAlphaVantageKey();
+  if (key) {
+    attempts.push({
+      label: "Alpha Vantage",
+      run: () => fetchFromAlphaVantage(symbol, startDate, endDate, key),
+    });
+  }
+
+  const problems: string[] = [];
+  for (const attempt of attempts) {
+    try {
+      return await withRetry(attempt.run);
+    } catch (e) {
+      problems.push(`${attempt.label}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  const hint = key
+    ? ""
+    : " If Yahoo is blocked on this network, add an Alpha Vantage key from the Data menu.";
+  throw new Error(`${symbol} could not be loaded. ${problems.join("; ")}.${hint}`);
 }
 
 export interface AlignedPair {

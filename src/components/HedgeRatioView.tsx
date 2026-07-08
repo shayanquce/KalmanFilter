@@ -66,7 +66,9 @@ export default function HedgeRatioView() {
   const [end, setEnd] = useState(isoToday());
   const [logDelta, setLogDelta] = useState(-5); // log10 of delta
   const [logR, setLogR] = useState(-4); // log10 of observation noise variance
-  const [pair, setPair] = useState<AlignedPair & { yName: string; xName: string } | null>(null);
+  const [pair, setPair] = useState<
+    (AlignedPair & { yName: string; xName: string; source: string }) | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +82,7 @@ export default function HedgeRatioView() {
         fetchDailySeries(yName, start, end),
         fetchDailySeries(xName, start, end),
       ]);
-      setPair({ ...alignSeries(sy, sx), yName, xName });
+      setPair({ ...alignSeries(sy, sx), yName, xName, source: sy.source });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPair(null);
@@ -209,7 +211,7 @@ export default function HedgeRatioView() {
             <div className="readout-cell">
               <div className="k">Pair</div>
               <div className="v">{pair.yName} / {pair.xName}</div>
-              <div className="sub">{model.rows.length} obs after burn-in</div>
+              <div className="sub">{model.rows.length} obs &middot; {pair.source}</div>
             </div>
             <div className="readout-cell">
               <div className="k">Hedge ratio (beta)</div>
